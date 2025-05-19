@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "administrator.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Values.global.environment }}
   labels:
     {{- include "administrator.labels" . | nindent 4 }}
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}

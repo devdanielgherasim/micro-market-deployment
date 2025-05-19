@@ -8,20 +8,6 @@ image:
   tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
   pullPolicy: Always
 
-imagePullSecrets: [ ]
-nameOverride: ""
-fullnameOverride: ""
-
-serviceAccount:
-  create: true
-  name: ""
-
-podAnnotations: { }
-podLabels: { }
-
-podSecurityContext: { }
-securityContext: { }
-
 service:
   type: ClusterIP
   port: 8080
@@ -74,8 +60,6 @@ envFrom: [ ]
 # - configMapRef:
 #     name: my-config
 
-command: [ ]
-args: [ ]
 
 strategy:
   type: RollingUpdate
@@ -87,23 +71,3 @@ revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
-priorityClassName: ""
-runtimeClassName: ""
-hostAliases: [ ]
-
-initContainers: [ ]
-sidecarContainers: [ ]
-
-volumes: [ ]
-volumeMounts: [ ]
-
-nodeSelector: { }
-tolerations: [ ]
-affinity: { }
-
-topologySpreadConstraints: [ ]
-
-deploymentAnnotations: { }
-
-dnsPolicy: ClusterFirst
-dnsConfig: { }
