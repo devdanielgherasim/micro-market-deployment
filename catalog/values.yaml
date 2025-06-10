@@ -1,28 +1,32 @@
+# Global values - will be overridden by environment-specific values
 global:
-  environment: dev
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
 
 replicaCount: 1
 
+# Image configuration - will be overridden by environment-specific values
 image:
-  repository: acrmicroservices1691715dev.azurecr.io/microservices1691715/catalog
-  tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
+  repository: ""  # Set in environment-specific values file
+  tag: ""  # Set in environment-specific values file
   pullPolicy: Always
 
 service:
   type: ClusterIP
-  port: 8080
+  port: 8088
+  name: catalog
 
+# Resources will be set in environment-specific values files
 resources:
-  requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
+  requests: { }
+  limits: { }
 
 livenessProbe:
   httpGet:
-    path: /health
+    path: /health/live
     port: http
   initialDelaySeconds: 10
   periodSeconds: 10
@@ -32,7 +36,7 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /ready
+    path: /health/ready
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
@@ -40,8 +44,14 @@ readinessProbe:
   successThreshold: 1
   failureThreshold: 3
 
-startupProbe: { }
-lifecycle: { }
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 5
 
 autoscaling:
   enabled: false
@@ -50,16 +60,63 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
-env: [ ]
-# Example:
-# - name: ENV_NAME
-#   value: "value"
+# Base environment variables - environment-specific values will be set in environment-specific values files
+env:
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: password
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.host
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.port
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.name
+  - name: HIBERNATE_GENERATION
+    value: "update"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"
+  - name: KEYCLOAK_URL
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
+  - name: KEYCLOAK_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-secret
+        key: catalog-service-secret
 
-envFrom: [ ]
-# Example:
-# - configMapRef:
-#     name: my-config
+# ConfigMaps with placeholder values - will be overridden by environment-specific values
+configMaps:
+  catalog-config:
+    data: { }
 
+  keycloak-config:
+    data: { }
+
+# Secrets with placeholder values - will be overridden by environment-specific values
+secrets:
+  catalog-db-secret:
+    data: { }
+
+  keycloak-secret:
+    data: { }
 
 strategy:
   type: RollingUpdate
@@ -71,3 +128,13 @@ revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Hosts and TLS configuration will be set in environment-specific values files
+  hosts: [ ]
+  tls: [ ]

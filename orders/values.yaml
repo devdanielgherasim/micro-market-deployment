@@ -1,10 +1,16 @@
+# Global values - will be overridden by environment-specific values
 global:
-  environment: dev
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
 
 replicaCount: 1
 
+# Image configuration - will be overridden by environment-specific values
 image:
-  repository: acrmicroservices1691715dev.azurecr.io/microservices1691715/orders
+  repository: ""  # Set by ArgoCD parameter
   tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
   pullPolicy: Always
 

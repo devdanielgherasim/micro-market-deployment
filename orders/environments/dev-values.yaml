@@ -1,10 +1,6 @@
-global:
-  environment: dev
-
 replicaCount: 1
 
 image:
-  repository: acrmicroservices1691715dev.azurecr.io/microservices1691715/orders
   tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
   pullPolicy: Always
 

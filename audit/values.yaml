@@ -1,123 +1,158 @@
-# Default values for audit.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
-# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
+# Global values - will be overridden by environment-specific values
+global:
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
+
+# Image configuration - will be overridden by environment-specific values
 image:
-  repository: nginx
-  # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  repository: ""  # Set by ArgoCD parameter
+  tag: "latest"
+  pullPolicy: Always
 
-# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-imagePullSecrets: []
-# This is to override the chart name.
-nameOverride: ""
-fullnameOverride: ""
-
-# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
-
-# This is for setting Kubernetes Annotations to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-podAnnotations: {}
-# This is for setting Kubernetes Labels to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-podLabels: {}
-
-podSecurityContext: {}
-  # fsGroup: 2000
-
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
+  port: 8089
+  name: audit
 
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
-    path: /
+    path: /health/live
     port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
 readinessProbe:
   httpGet:
-    path: /
+    path: /health/ready
     port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 5
+
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 100
+  minReplicas: 2
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
-# Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
+env:
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: audit-db-secret
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: audit-db-secret
+        key: password
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: audit-config
+        key: db.host
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+        name: audit-config
+        key: db.port
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+        name: audit-config
+        key: db.name
+  - name: HIBERNATE_GENERATION
+    value: "update"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"
+  - name: HTTP_PORT
+    value: "8089"
+  - name: CORS_ORIGINS
+    value: "https://{{ .Values.global.domain }}/*"
+  - name: KEYCLOAK_URL
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
+  - name: KEYCLOAK_CLIENT_ID
+    value: "audit-service"
+  - name: KEYCLOAK_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-secret
+        key: audit-service-secret
 
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+configMaps:
+  audit-config:
+    data:
+      db.host: "postgres-audit"
+      db.port: "5433"
+      db.name: "microservices1691716"
 
-nodeSelector: {}
+  keycloak-config:
+    data:
+      url: "{{ .Values.global.keycloak.url }}/realms/{{ .Values.global.keycloak.realm }}"
 
-tolerations: []
+secrets:
+  audit-db-secret:
+    data:
+      username: "postgres"
+      password: "oRncHiOovwJAVOXK"  # Consider using external secrets management in production
 
-affinity: {}
+  keycloak-secret:
+    data:
+      audit-service-secret: "audit-service-secret"  # Consider using external secrets management in production
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
+
+revisionHistoryLimit: 10
+progressDeadlineSeconds: 600
+minReadySeconds: 0
+terminationGracePeriodSeconds: 30
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: "{{ .Values.global.domain }}"
+      paths:
+        - path: /api/audit
+          pathType: Prefix
+  tls:
+    - secretName: microservices-tls
+      hosts:
+        - "{{ .Values.global.domain }}"
