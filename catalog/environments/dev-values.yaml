@@ -1,5 +1,5 @@
 image:
-  tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
+  tag: "test"
 
 resources:
   requests:
