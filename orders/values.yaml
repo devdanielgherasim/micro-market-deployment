@@ -11,7 +11,7 @@ replicaCount: 1
 # Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set by ArgoCD parameter
-  tag: "da6098412e5b62a2ad05315a928a71bc72b00086"
+  tag: "test"
   pullPolicy: Always
 
 service:
@@ -77,3 +77,9 @@ revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: { }
+  name: ""

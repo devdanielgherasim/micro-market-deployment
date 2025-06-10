@@ -11,7 +11,7 @@ replicaCount: 1
 # Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set in environment-specific values file
-  tag: ""  # Set in environment-specific values file
+  tag: "test"
   pullPolicy: Always
 
 service:
@@ -138,3 +138,9 @@ ingress:
   # Hosts and TLS configuration will be set in environment-specific values files
   hosts: [ ]
   tls: [ ]
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: { }
+  name: ""

@@ -11,7 +11,7 @@ global:
 # Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set by ArgoCD parameter
-  tag: "latest"
+  tag: "test"
   pullPolicy: Always
 
 service:
@@ -156,3 +156,9 @@ ingress:
     - secretName: microservices-tls
       hosts:
         - "{{ .Values.global.domain }}"
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: { }
+  name: ""

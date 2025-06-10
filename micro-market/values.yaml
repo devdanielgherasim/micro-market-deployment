@@ -12,7 +12,7 @@ global:
 image:
   repository: ""  # Set in environment-specific values file
   pullPolicy: Always
-  tag: "latest"  # Set in environment-specific values file
+  tag: "test"
 
 imagePullSecrets:
   - name: acr-secret
