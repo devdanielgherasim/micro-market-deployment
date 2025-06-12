@@ -32,10 +32,29 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+          backend:
+            serviceName: micro-market-frontend-dev
+            servicePort: 80
+        - path: /api/products
+          pathType: Prefix
+          backend:
+            serviceName: catalog-dev
+            servicePort: 80
+        - path: /api/audit
+          pathType: Prefix
+          backend:
+            serviceName: audit-dev
+            servicePort: 80
+        - path: /api/orders
+          pathType: Prefix
+          backend:
+            serviceName: orders-dev
+            servicePort: 80
   tls:
     - secretName: frontend-tls
       hosts:
         - "microservices1691717.westeurope.cloudapp.azure.com"
+
 
 autoscaling:
   enabled: false
