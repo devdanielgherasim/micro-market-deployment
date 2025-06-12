@@ -119,7 +119,7 @@ configMaps:
 
   keycloak-config:
     data:
-      url: "{{ .Values.global.keycloak.url }}/realms/{{ .Values.global.keycloak.realm }}"
+      url: "https://keycloak.microservices.svc.cluster.local/auth/realms/microservices"
 
 secrets:
   audit-db-secret:
