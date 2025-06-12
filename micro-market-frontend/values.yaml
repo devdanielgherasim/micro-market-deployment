@@ -16,7 +16,7 @@ image:
 
 service:
   type: ClusterIP
-  port: 443
+  port: 8080
   targetPort: 3000
 
 ingress:
