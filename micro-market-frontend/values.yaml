@@ -34,22 +34,22 @@ ingress:
           pathType: Prefix
           backend:
             serviceName: micro-market-frontend-dev
-            servicePort: 80
+            servicePort: 8080
         - path: /api/products
           pathType: Prefix
           backend:
             serviceName: catalog-dev
-            servicePort: 80
+            servicePort: 8080
         - path: /api/audit
           pathType: Prefix
           backend:
             serviceName: audit-dev
-            servicePort: 80
+            servicePort: 8080
         - path: /api/orders
           pathType: Prefix
           backend:
             serviceName: orders-dev
-            servicePort: 80
+            servicePort: 8080
   tls:
     - secretName: frontend-tls
       hosts:
