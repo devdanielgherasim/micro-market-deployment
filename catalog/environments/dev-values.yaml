@@ -44,7 +44,7 @@ ingress:
   hosts:
     - host: "{{ .Values.global.domain }}"
       paths:
-        - path: /api/catalog
+        - path: /api/products
           pathType: Prefix
   tls:
     - secretName: catalog-tls
