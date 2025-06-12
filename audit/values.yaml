@@ -16,7 +16,7 @@ image:
 
 service:
   type: ClusterIP
-  port: 80
+  port: 8080
   name: audit
 
 resources:
@@ -94,7 +94,7 @@ env:
   - name: HIBERNATE_LOG_SQL
     value: "false"
   - name: HTTP_PORT
-    value: "80"
+    value: "8080"
   - name: CORS_ORIGINS
     value: "*"
   - name: KEYCLOAK_URL
