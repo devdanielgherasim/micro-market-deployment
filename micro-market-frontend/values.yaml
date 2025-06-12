@@ -23,7 +23,6 @@ ingress:
   enabled: true
   className: "nginx"
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     acme.cert-manager.io/http01-edit-in-place: "true"
     kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-production-cluster-issuer"
@@ -84,7 +83,7 @@ env:
   - name: NEXT_PUBLIC_KEYCLOAK_URL
     value: "https://microservices1691717.westeurope.cloudapp.azure.com/auth"
   - name: NEXT_PUBLIC_KEYCLOAK_REALM
-    value: "microservices1691717"
+    value: "microservices"
   - name: NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
     value: "micro-market-frontend"
   - name: NEXT_PUBLIC_API_URL
