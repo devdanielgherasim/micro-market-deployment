@@ -108,10 +108,7 @@ env:
         name: keycloak-config
         key: url
   - name: KEYCLOAK_CLIENT_SECRET
-    valueFrom:
-      secretKeyRef:
-        name: keycloak-secret
-        key: catalog-service-secret
+    value: "catalog-service-secret"
 
 # ConfigMaps with placeholder values - will be overridden by environment-specific values
 configMaps:
@@ -130,11 +127,6 @@ secrets:
     data:
       username: "postgres"
       password: "oRncHiOovwJAVOXK"
-
-  keycloak-secret:
-    data:
-      catalog-service-secret: "catalog-service-secret"
-
 
 strategy:
   type: RollingUpdate
