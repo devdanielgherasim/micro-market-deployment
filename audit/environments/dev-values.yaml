@@ -94,7 +94,7 @@ env:
   - name: HIBERNATE_LOG_SQL
     value: "false"
   - name: HTTP_PORT
-    value: "8089"
+    value: "80"
   - name: CORS_ORIGINS
     value: "*"
   - name: KEYCLOAK_URL
