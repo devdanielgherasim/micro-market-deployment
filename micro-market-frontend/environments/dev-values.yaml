@@ -89,3 +89,9 @@ strategy:
     maxUnavailable: 0
 
 terminationGracePeriodSeconds: 30
+
+serviceAccount:
+  create: false
+  automount: true
+  annotations: { }
+  name: ""
