@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "micro-market.fullname" . }}
+  name: {{ include "micro-market-frontend.fullname" . }}
   labels:
-    {{- include "micro-market.labels" . | nindent 4 }}
+    {{- include "micro-market-frontend.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "micro-market.selectorLabels" . | nindent 4 }}
+    {{- include "micro-market-frontend.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,13 @@
+{{- if .Values.configMaps }}
+{{- range $name, $configMap := .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "micro-market-frontend.labels" $ | nindent 4 }}
+data:
+  {{- toYaml $configMap.data | nindent 2 }}
+{{- end }}
+{{- end }}

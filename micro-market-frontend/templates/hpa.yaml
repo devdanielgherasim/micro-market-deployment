@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "micro-market.fullname" . }}
+  name: {{ include "micro-market-frontend.fullname" . }}
   labels:
-    {{- include "micro-market.labels" . | nindent 4 }}
+    {{- include "micro-market-frontend.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "micro-market.fullname" . }}
+    name: {{ include "micro-market-frontend.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

@@ -1,6 +1,16 @@
+# Global values - will be overridden by environment-specific values
+global:
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
+
 replicaCount: 1
 
+# Image configuration - will be overridden by environment-specific values
 image:
+  repository: ""  # Set by ArgoCD parameter
   tag: "test"
   pullPolicy: Always
 
@@ -67,3 +77,9 @@ revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
+
+serviceAccount:
+  create: false
+  automount: true
+  annotations: { }
+  name: ""
