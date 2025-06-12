@@ -115,7 +115,7 @@ configMaps:
     data:
       db.host: "postgresql.postgresql.svc.cluster.local"
       db.port: "5432"
-      db.name: "microservices1691713"
+      db.name: "microservices1691717"
 
   keycloak-config:
     data:
