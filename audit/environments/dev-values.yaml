@@ -16,7 +16,7 @@ image:
 
 service:
   type: ClusterIP
-  port: http
+  port: 80
   name: audit
 
 resources:
