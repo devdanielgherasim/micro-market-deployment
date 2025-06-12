@@ -1,5 +1,3 @@
-replicaCount: 1
-
 # Global values - will be overridden by environment-specific values
 global:
   environment: ""  # Set by ArgoCD parameter
@@ -7,6 +5,8 @@ global:
   keycloak:
     url: ""        # Set by ArgoCD parameter
     realm: ""      # Set by ArgoCD parameter
+
+replicaCount: 1
 
 # Image configuration - will be overridden by environment-specific values
 image:
@@ -16,7 +16,7 @@ image:
 
 service:
   type: ClusterIP
-  port: 8089
+  port: http
   name: audit
 
 resources:

@@ -1,5 +1,23 @@
+# Global values - will be overridden by environment-specific values
+global:
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
+
+replicaCount: 1
+
+# Image configuration - will be overridden by environment-specific values
 image:
+  repository: ""  # Set by ArgoCD parameter
   tag: "test"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: http
+  name: catalog
 
 resources:
   requests:
@@ -9,44 +27,131 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Base environment variables - environment-specific values will be set in environment-specific values files
 env:
   - name: HTTP_PORT
     value: "8088"
   - name: CORS_ORIGINS
-    value: "https://ui-service.example.com,https://admin.example.com"
+    value: "*"
   - name: KEYCLOAK_CLIENT_ID
     value: "catalog-service"
   - name: AUDIT_SERVICE_URL
-    value: "http://audit-service:8089"
+    value: "http://audit-dev.microservices.svc.cluster.local"
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: password
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.host
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.port
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.name
+  - name: HIBERNATE_GENERATION
+    value: "update"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"
+  - name: KEYCLOAK_URL
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
+  - name: KEYCLOAK_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-secret
+        key: catalog-service-secret
 
+# ConfigMaps with placeholder values - will be overridden by environment-specific values
 configMaps:
   catalog-config:
     data:
-      db.host: "postgres-catalog"
+      db.host: "postgresql.postgresql.svc.cluster.local"
       db.port: "5432"
-      db.name: "microservices1691716"
+      db.name: "microservices1691717"
 
   keycloak-config:
     data:
-      url: "{{ .Values.global.keycloak.url }}/realms/{{ .Values.global.keycloak.realm }}"
+      url: "http://keycloak.keycloak.svc.cluster.local/auth/realms/microservices"
 
 secrets:
   catalog-db-secret:
     data:
       username: "postgres"
-      password: "changeme"  # Replace with actual encoded password or use external secrets
+      password: "oRncHiOovwJAVOXK"
 
   keycloak-secret:
     data:
-      catalog-service-secret: "changeme"  # Replace with actual encoded secret or use external secrets
+      catalog-service-secret: "catalog-service-secret"
+
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
 
 ingress:
-  hosts:
-    - host: "{{ .Values.global.domain }}"
-      paths:
-        - path: /api/products
-          pathType: Prefix
-  tls:
-    - secretName: catalog-tls
-      hosts:
-        - "{{ .Values.global.domain }}"
+  enabled: false
+
+revisionHistoryLimit: 10
+progressDeadlineSeconds: 600
+minReadySeconds: 0
+terminationGracePeriodSeconds: 30
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: { }
+  name: ""

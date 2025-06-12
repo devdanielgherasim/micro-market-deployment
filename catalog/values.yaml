@@ -10,19 +10,22 @@ replicaCount: 1
 
 # Image configuration - will be overridden by environment-specific values
 image:
-  repository: ""  # Set in environment-specific values file
+  repository: ""  # Set by ArgoCD parameter
   tag: "test"
   pullPolicy: Always
 
 service:
   type: ClusterIP
-  port: 8088
+  port: http
   name: catalog
 
-# Resources will be set in environment-specific values files
 resources:
-  requests: { }
-  limits: { }
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
 livenessProbe:
   httpGet:
@@ -62,6 +65,14 @@ autoscaling:
 
 # Base environment variables - environment-specific values will be set in environment-specific values files
 env:
+  - name: HTTP_PORT
+    value: "8088"
+  - name: CORS_ORIGINS
+    value: "*"
+  - name: KEYCLOAK_CLIENT_ID
+    value: "catalog-service"
+  - name: AUDIT_SERVICE_URL
+    value: "http://audit-dev.microservices.svc.cluster.local"
   - name: DB_USERNAME
     valueFrom:
       secretKeyRef:
@@ -105,18 +116,25 @@ env:
 # ConfigMaps with placeholder values - will be overridden by environment-specific values
 configMaps:
   catalog-config:
-    data: { }
+    data:
+      db.host: "postgresql.postgresql.svc.cluster.local"
+      db.port: "5432"
+      db.name: "microservices1691717"
 
   keycloak-config:
-    data: { }
+    data:
+      url: "http://keycloak.keycloak.svc.cluster.local/auth/realms/microservices"
 
-# Secrets with placeholder values - will be overridden by environment-specific values
 secrets:
   catalog-db-secret:
-    data: { }
+    data:
+      username: "postgres"
+      password: "oRncHiOovwJAVOXK"
 
   keycloak-secret:
-    data: { }
+    data:
+      catalog-service-secret: "catalog-service-secret"
+
 
 strategy:
   type: RollingUpdate
@@ -124,20 +142,13 @@ strategy:
     maxSurge: 25%
     maxUnavailable: 25%
 
+ingress:
+  enabled: false
+
 revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
-
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  # Hosts and TLS configuration will be set in environment-specific values files
-  hosts: [ ]
-  tls: [ ]
 
 serviceAccount:
   create: true
