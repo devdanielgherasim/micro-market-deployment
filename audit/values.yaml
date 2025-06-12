@@ -137,6 +137,9 @@ strategy:
     maxSurge: 25%
     maxUnavailable: 25%
 
+ingress:
+  enabled: false
+
 revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
 minReadySeconds: 0
