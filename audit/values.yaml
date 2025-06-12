@@ -90,13 +90,13 @@ env:
         name: audit-config
         key: db.name
   - name: HIBERNATE_GENERATION
-    value: "update"
+    value: "drop-and-create"
   - name: HIBERNATE_LOG_SQL
     value: "false"
   - name: HTTP_PORT
     value: "8089"
   - name: CORS_ORIGINS
-    value: "https://{{ .Values.global.domain }}/*"
+    value: "*"
   - name: KEYCLOAK_URL
     valueFrom:
       configMapKeyRef:
@@ -113,9 +113,9 @@ env:
 configMaps:
   audit-config:
     data:
-      db.host: "postgres-audit"
-      db.port: "5433"
-      db.name: "microservices1691716"
+      db.host: "postgresql.microservices.svc.cluster.local"
+      db.port: "5432"
+      db.name: "microservices1691713"
 
   keycloak-config:
     data:
@@ -142,23 +142,8 @@ progressDeadlineSeconds: 600
 minReadySeconds: 0
 terminationGracePeriodSeconds: 30
 
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-  hosts:
-    - host: "{{ .Values.global.domain }}"
-      paths:
-        - path: /api/audit
-          pathType: Prefix
-  tls:
-    - secretName: microservices-tls
-      hosts:
-        - "{{ .Values.global.domain }}"
-
 serviceAccount:
-  create: true
+  create: false
   automount: true
   annotations: { }
   name: ""
