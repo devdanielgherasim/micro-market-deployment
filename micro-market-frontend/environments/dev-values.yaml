@@ -91,7 +91,7 @@ env:
   - name: NEXT_PUBLIC_API_TIMEOUT
     value: "30000"
   - name: NODE_ENV
-    value: "production"
+    value: "development"
 
 resources:
   limits:
