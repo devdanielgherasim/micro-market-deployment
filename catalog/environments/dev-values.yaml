@@ -120,7 +120,7 @@ configMaps:
 
   keycloak-config:
     data:
-      url: "http://keycloak.keycloak.svc.cluster.local/auth/realms/microservices"
+      url: "https://microservices1691717.westeurope.cloudapp.azure.com/auth/realms/microservices"
 
 secrets:
   catalog-db-secret:
