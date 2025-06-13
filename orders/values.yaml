@@ -17,6 +17,7 @@ image:
 service:
   type: ClusterIP
   port: 8080
+  name: orders
 
 resources:
   requests:
@@ -28,7 +29,7 @@ resources:
 
 livenessProbe:
   httpGet:
-    path: /health
+    path: /health/live
     port: http
   initialDelaySeconds: 10
   periodSeconds: 10
@@ -38,7 +39,7 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /ready
+    path: /health/ready
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
@@ -46,32 +47,95 @@ readinessProbe:
   successThreshold: 1
   failureThreshold: 3
 
-startupProbe: { }
-lifecycle: { }
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 5
 
 autoscaling:
   enabled: false
-  minReplicas: 2
-  maxReplicas: 5
+  minReplicas: 1
+  maxReplicas: 2
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
-env: [ ]
-# Example:
-# - name: ENV_NAME
-#   value: "value"
+# Base environment variables - environment-specific values will be set in environment-specific values files
+env:
+  - name: HTTP_PORT
+    value: "8080"
+  - name: CORS_ORIGINS
+    value: "*"
+  - name: KEYCLOAK_CLIENT_ID
+    value: "orders-service"
+  - name: CATALOG_SERVICE_URL
+    value: "http://catalog-dev.microservices.svc.cluster.local:8080"
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: orders-db-secret
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: orders-db-secret
+        key: password
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: orders-config
+        key: db.host
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+        name: orders-config
+        key: db.port
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+        name: orders-config
+        key: db.name
+  - name: HIBERNATE_GENERATION
+    value: "drop-and-create"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"
+  - name: KEYCLOAK_URL
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
+  - name: KEYCLOAK_CLIENT_SECRET
+    value: "orders-service-secret"
 
-envFrom: [ ]
-# Example:
-# - configMapRef:
-#     name: my-config
+# ConfigMaps with placeholder values - will be overridden by environment-specific values
+configMaps:
+  orders-config:
+    data:
+      db.host: "postgresql.postgresql.svc.cluster.local"
+      db.port: "5432"
+      db.name: "microservices1691717"
 
+  keycloak-config:
+    data:
+      url: "https://microservices1691717.westeurope.cloudapp.azure.com/auth/realms/microservices"
+
+secrets:
+  orders-db-secret:
+    data:
+      username: "postgres"
+      password: "oRncHiOovwJAVOXK"
 
 strategy:
   type: RollingUpdate
   rollingUpdate:
     maxSurge: 25%
     maxUnavailable: 25%
+
+ingress:
+  enabled: false
 
 revisionHistoryLimit: 10
 progressDeadlineSeconds: 600
