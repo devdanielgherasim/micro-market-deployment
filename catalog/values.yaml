@@ -96,7 +96,7 @@ env:
         name: catalog-config
         key: db.name
   - name: HIBERNATE_GENERATION
-    value: "update"
+    value: "drop-and-create"
   - name: HIBERNATE_LOG_SQL
     value: "false"
   - name: KEYCLOAK_URL
