@@ -1,4 +1,3 @@
-# Global values - will be overridden by environment-specific values
 global:
   environment: ""  # Set by ArgoCD parameter
   domain: ""       # Set by ArgoCD parameter
@@ -8,10 +7,9 @@ global:
 
 replicaCount: 1
 
-# Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set by ArgoCD parameter
-  tag: "test"
+  tag: "v1.0.0"
   pullPolicy: Always
 
 service:
@@ -115,21 +113,9 @@ configMaps:
     data:
       db.host: "postgresql.postgresql.svc.cluster.local"
       db.port: "5432"
-      db.name: "microservices1691717"
+      db.name: "microservices"
 
-  keycloak-config:
-    data:
-      url: "http://keycloak.keycloak.svc.cluster.local/auth/realms/microservices"
-
-secrets:
-  audit-db-secret:
-    data:
-      username: "postgres"
-      password: "oRncHiOovwJAVOXK"  # Consider using external secrets management in production
-
-  keycloak-secret:
-    data:
-      audit-service-secret: "audit-service-secret"  # Consider using external secrets management in production
+secrets: {}
 
 strategy:
   type: RollingUpdate

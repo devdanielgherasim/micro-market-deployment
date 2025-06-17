@@ -1,4 +1,3 @@
-# Global values - will be overridden by environment-specific values
 global:
   environment: ""  # Set by ArgoCD parameter
   domain: ""       # Set by ArgoCD parameter
@@ -8,10 +7,9 @@ global:
 
 replicaCount: 1
 
-# Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set by ArgoCD parameter
-  tag: "test"
+  tag: "v1.0.0"
   pullPolicy: Always
 
 service:
@@ -63,7 +61,6 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
-# Base environment variables - environment-specific values will be set in environment-specific values files
 env:
   - name: HTTP_PORT
     value: "8080"
@@ -72,7 +69,7 @@ env:
   - name: KEYCLOAK_CLIENT_ID
     value: "orders-service"
   - name: CATALOG_SERVICE_URL
-    value: "http://catalog-dev.microservices.svc.cluster.local:8080"
+    value: "http://catalog.microservices.svc.cluster.local:8080"
   - name: DB_USERNAME
     valueFrom:
       secretKeyRef:
@@ -108,25 +105,19 @@ env:
         name: keycloak-config
         key: url
   - name: KEYCLOAK_CLIENT_SECRET
-    value: "orders-service-secret"
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-secret
+        key: orders-service-secret
 
-# ConfigMaps with placeholder values - will be overridden by environment-specific values
 configMaps:
   orders-config:
     data:
       db.host: "postgresql.postgresql.svc.cluster.local"
       db.port: "5432"
-      db.name: "microservices1691717"
+      db.name: "microservices"
 
-  keycloak-config:
-    data:
-      url: "https://microservices1691717.westeurope.cloudapp.azure.com/auth/realms/microservices"
-
-secrets:
-  orders-db-secret:
-    data:
-      username: "postgres"
-      password: "oRncHiOovwJAVOXK"
+secrets: {}
 
 strategy:
   type: RollingUpdate

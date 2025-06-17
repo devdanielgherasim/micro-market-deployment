@@ -1,4 +1,3 @@
-# Global values - will be overridden by environment-specific values
 global:
   environment: ""  # Set by ArgoCD parameter
   domain: ""       # Set by ArgoCD parameter
@@ -8,10 +7,9 @@ global:
 
 replicaCount: 1
 
-# Image configuration - will be overridden by environment-specific values
 image:
   repository: ""  # Set by ArgoCD parameter
-  tag: "test"
+  tag: "v1.0.0"
   pullPolicy: Always
 
 service:
@@ -32,22 +30,22 @@ ingress:
         - path: /
           pathType: Prefix
           backend:
-            serviceName: micro-market-frontend-dev
+            serviceName: micro-market-frontend
             servicePort: 8080
         - path: /api/products
           pathType: Prefix
           backend:
-            serviceName: catalog-dev
+            serviceName: catalog
             servicePort: 8080
         - path: /api/audit
           pathType: Prefix
           backend:
-            serviceName: audit-dev
+            serviceName: audit
             servicePort: 8080
         - path: /api/orders
           pathType: Prefix
           backend:
-            serviceName: orders-dev
+            serviceName: orders
             servicePort: 8080
   tls:
     - secretName: frontend-tls
