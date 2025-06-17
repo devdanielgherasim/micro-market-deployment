@@ -1,0 +1,140 @@
+global:
+  environment: ""  # Set by ArgoCD parameter
+  domain: ""       # Set by ArgoCD parameter
+  keycloak:
+    url: ""        # Set by ArgoCD parameter
+    realm: ""      # Set by ArgoCD parameter
+
+replicaCount: 1
+
+image:
+  repository: ""  # Set by ArgoCD parameter
+  tag: "v1.0.0"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8080
+  name: catalog
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /health/live
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+env:
+  - name: HTTP_PORT
+    value: "8080"
+  - name: CORS_ORIGINS
+    value: "*"
+  - name: KEYCLOAK_CLIENT_ID
+    value: "catalog-service"
+  - name: AUDIT_SERVICE_URL
+    value: "http://audit.microservices.svc.cluster.local:8080"
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: catalog-db-secret
+        key: password
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.host
+  - name: DB_PORT
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.port
+  - name: DB_NAME
+    valueFrom:
+      configMapKeyRef:
+        name: catalog-config
+        key: db.name
+  - name: HIBERNATE_GENERATION
+    value: "update"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"
+  - name: KEYCLOAK_URL
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
+  - name: KEYCLOAK_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-secret
+        key: catalog-service-secret
+
+configMaps:
+  catalog-config:
+    data:
+      db.host: "postgresql.postgresql.svc.cluster.local"
+      db.port: "5432"
+      db.name: "microservices"
+
+secrets: {}
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
+
+ingress:
+  enabled: false
+
+revisionHistoryLimit: 10
+progressDeadlineSeconds: 600
+minReadySeconds: 0
+terminationGracePeriodSeconds: 30
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: { }
+  name: ""
