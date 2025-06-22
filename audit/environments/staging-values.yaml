@@ -100,6 +100,11 @@ env:
       configMapKeyRef:
         name: keycloak-config
         key: url
+  - name: TOKEN_ISSUER
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
   - name: KEYCLOAK_CLIENT_ID
     value: "audit-service"
   - name: KEYCLOAK_CLIENT_SECRET
@@ -115,7 +120,7 @@ configMaps:
       db.port: "5432"
       db.name: "microservices"
 
-secrets: {}
+secrets: { }
 
 strategy:
   type: RollingUpdate

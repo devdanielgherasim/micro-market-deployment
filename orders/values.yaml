@@ -106,6 +106,11 @@ env:
       configMapKeyRef:
         name: keycloak-config
         key: url
+  - name: TOKEN_ISSUER
+    valueFrom:
+      configMapKeyRef:
+        name: keycloak-config
+        key: url
   - name: KEYCLOAK_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
