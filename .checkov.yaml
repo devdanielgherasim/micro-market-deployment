@@ -1,0 +1,65 @@
+# Checkov config for the `kubernetes` framework, scanning helm-template
+# output rendered by CI (see .gitlab-ci.yml, `helm-template` job -> `rendered/`
+# artifact). Only real, justified skips live here — anything genuinely
+# security-relevant (privileged containers, hostNetwork/hostPID, missing
+# resource limits, root containers, missing NetworkPolicy, etc.) is fixed in
+# the chart templates/values directly, not skipped.
+#
+# NOTE: checkov's --config-file `skip-check`/`skip-path` keys are flat lists
+# of IDs/regexes (no inline per-item reason field) -- reasons are documented
+# here as comments instead, one per skipped check:
+#
+#   CKV_K8S_43 "Image should use digest" -- images are tagged per-commit by
+#     CI (CI_COMMIT_SHA, see each service repo's build.sh), which already
+#     gives immutable, traceable deploys without floating tags; the actual
+#     repository/tag is injected by ArgoCD's Application parameters at sync
+#     time. Digest pinning would need extra digest-resolution tooling not
+#     part of this pipeline yet -- a lab-scope trade-off, not a real
+#     supply-chain gate at this project's stage.
+#
+#   CKV_K8S_35 "Prefer secrets as files over env vars" -- catalog/orders/
+#     audit read DB credentials and the Keycloak client secret via
+#     MicroProfile Config env vars (application.properties, e.g.
+#     ${DB_PASSWORD}). Switching to file-mounted secrets is an
+#     application-config change owned by those service repos, out of scope
+#     for a Helm-chart-only change -- flagged for a coordinated follow-up,
+#     not silently dropped.
+#
+#   CKV_K8S_40 "Containers should run as a high UID" -- runAsUser/
+#     runAsGroup 1001 is presumed to match the non-root user baked into the
+#     catalog/orders/audit/micro-market-frontend container images (owned by
+#     other repos). Bumping the UID from the Helm side without confirming
+#     the image's actual UID risks breaking pod startup on file ownership;
+#     changing it needs coordination with whoever owns those image builds.
+#
+#   CKV_K8S_21 "The default namespace should not be used" -- none of these
+#     charts' resource templates hardcode metadata.namespace (idiomatic
+#     Helm -- templates/namespace.yaml creates `{{ .Release.Namespace }}`
+#     once, every other resource lands there implicitly via the apply/sync
+#     context). In real deploys ArgoCD's Application `destination.namespace`
+#     pins the actual namespace, never "default". `helm template` run
+#     standalone in CI (no ArgoCD) has no other namespace context, so
+#     checkov's static read of the rendered YAML sees an absent namespace
+#     field and assumes "default" -- a CI artifact, not a real
+#     misconfiguration. Hardcoding `namespace: {{ .Release.Namespace }}` on
+#     every resource across all 4 charts purely to satisfy this check would
+#     be redundant boilerplate for no behavioral gain in this GitOps setup.
+framework:
+  - kubernetes
+
+skip-path:
+  # Helm's auto-generated `helm test` hook pods (`helm.sh/hook: test`,
+  # busybox wget smoke test). Never synced/run by ArgoCD as part of
+  # steady-state deployment -- they only fire on a manual `helm test`
+  # invocation, carry no production traffic, hold no persistent data. Full
+  # workload-grade hardening is disproportionate for a throwaway
+  # one-shot smoke-test pod.
+  # (checkov skip-path entries are regexes matched against the file path,
+  # not globs -- no leading "*".)
+  - "templates/tests/"
+
+skip-check:
+  - CKV_K8S_43
+  - CKV_K8S_35
+  - CKV_K8S_40
+  - CKV_K8S_21

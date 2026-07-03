@@ -138,6 +138,6 @@ terminationGracePeriodSeconds: 30
 
 serviceAccount:
   create: false
-  automount: true
+  automount: false
   annotations: { }
   name: ""

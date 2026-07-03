@@ -18,38 +18,7 @@ service:
   targetPort: 3000
 
 ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-dns"
-  hosts:
-    - host: ""  # Set by ArgoCD parameter
-      paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            serviceName: micro-market-frontend
-            servicePort: 8080
-        - path: /api/products
-          pathType: Prefix
-          backend:
-            serviceName: catalog
-            servicePort: 8080
-        - path: /api/audit
-          pathType: Prefix
-          backend:
-            serviceName: audit
-            servicePort: 8080
-        - path: /api/orders
-          pathType: Prefix
-          backend:
-            serviceName: orders
-            servicePort: 8080
-  tls:
-    - secretName: frontend-tls
-      hosts:
-        - ""  # Set by ArgoCD parameter
+  enabled: false
 
 autoscaling:
   enabled: true
@@ -68,7 +37,7 @@ networkPolicy:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
+              kubernetes.io/metadata.name: istio-ingress
       ports:
         - protocol: TCP
           port: http
@@ -128,10 +97,22 @@ securityContext:
   capabilities:
     drop:
       - ALL
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   runAsGroup: 1001
   runAsNonRoot: true
   runAsUser: 1001
+
+# Root filesystem is read-only (above); the Next.js standalone server needs a
+# writable /tmp at runtime (Node's os.tmpdir(), transient file processing).
+# Mounted as an in-memory emptyDir rather than relying on writable container
+# layers.
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+
+volumes:
+  - name: tmp
+    emptyDir: {}
 
 livenessProbe:
   httpGet:
@@ -178,3 +159,33 @@ serviceAccount:
   automount: false
   annotations: { }
   name: ""
+
+namespace:
+  create: true
+  labels:
+    istio.io/dataplane-mode: ambient
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gateway
+      namespace: istio-ingress
+  hostnames:
+    - ""
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: micro-market-frontend
+          port: 8080
+
+peerAuthentication:
+  enabled: true
+  mode: STRICT
+
+authorizationPolicy:
+  enabled: true
+  allowedNamespaces:
+    - istio-ingress

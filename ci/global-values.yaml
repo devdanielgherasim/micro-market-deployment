@@ -1,0 +1,19 @@
+# CI-only values overlay.
+#
+# In real deployments, ArgoCD's ApplicationSet injects `global.*` as Helm
+# parameters at sync time (domain, environment, Keycloak URL/realm) — these
+# fields are intentionally blank in every chart's values.yaml and
+# environments/*-values.yaml ("Set by ArgoCD parameter"). Standalone
+# `helm lint`/`helm template` in CI has no ArgoCD to do that, so an empty
+# `global.domain` renders an invalid HTTPRoute (empty hostname). This file
+# supplies realistic placeholder values so CI renders and validates the same
+# templates ArgoCD would actually produce, without changing any chart default.
+#
+# Not used by ArgoCD/Helm in real syncs — CI-only, referenced explicitly via
+# `-f ci/global-values.yaml` in .gitlab-ci.yml.
+global:
+  environment: dev
+  domain: danielgherasim.com
+  keycloak:
+    url: https://auth.danielgherasim.com
+    realm: microservices

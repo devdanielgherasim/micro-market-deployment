@@ -1,0 +1,128 @@
+# CI gates for the app-service Helm charts (catalog, orders, audit,
+# micro-market-frontend) that ../platform-gitops's ArgoCD ApplicationSet
+# syncs from this repo.
+#
+# Design notes (see plans/2026-07-03-helm-k8s-ci-gates.md for the full
+# writeup):
+#   - None of the 4 charts declare a Chart.yaml `dependencies:` block, so
+#     there is no vendored/subchart to `helm dependency build` — the charts
+#     are self-contained. `helm dependency build` is still run defensively
+#     before lint (no-op today, cheap insurance if a dependency is ever
+#     added).
+#   - `global.domain`/`global.environment`/`global.keycloak.*` and
+#     `image.repository` are intentionally blank in every values.yaml/
+#     environments/*-values.yaml — they're meant to be injected by ArgoCD's
+#     Application parameters at sync time, not baked into the chart. CI has
+#     no ArgoCD, so `ci/global-values.yaml` supplies realistic placeholders
+#     and `--set image.repository=...` fills the image field, purely so CI
+#     renders/validates the same shape of manifest ArgoCD would actually
+#     produce. Neither is a change to real chart behavior.
+#   - Likewise `--namespace microservices` on lint/template: without it Helm
+#     defaults `.Release.Namespace` to "default" locally, which is a CI
+#     artifact, not what's actually deployed (ArgoCD sets the real
+#     destination namespace).
+#   - Three focused jobs share a `rendered/` artifact rather than one image
+#     with helm+kubeconform+checkov baked in: alpine/helm, kubeconform's own
+#     image, and checkov's own image, chained via `needs:`.
+
+stages:
+  - lint
+  - template
+  - scan
+
+variables:
+  CHARTS: "catalog orders audit micro-market-frontend"
+  ENVS: "dev staging prod"
+  RENDER_NAMESPACE: "microservices"
+
+helm-lint:
+  stage: lint
+  image:
+    name: alpine/helm:3.16.3
+    entrypoint: [""]
+  script:
+    - |
+      set -eu
+      for chart in $CHARTS; do
+        echo "== helm dependency build: $chart (no-op unless Chart.yaml gains a dependencies: block) =="
+        helm dependency build "$chart" || true
+        echo "== helm lint: $chart (default values) =="
+        helm lint "$chart"
+        for env in $ENVS; do
+          echo "== helm lint: $chart ($env) =="
+          helm lint "$chart" -f "$chart/environments/$env-values.yaml"
+        done
+      done
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH'
+
+helm-template:
+  stage: template
+  image:
+    name: alpine/helm:3.16.3
+    entrypoint: [""]
+  needs:
+    - helm-lint
+  script:
+    - |
+      set -eu
+      mkdir -p rendered
+      for chart in $CHARTS; do
+        for env in $ENVS; do
+          helm template "$chart" \
+            -f "$chart/environments/$env-values.yaml" \
+            -f ci/global-values.yaml \
+            --set-string "image.repository=example.azurecr.io/$chart" \
+            --namespace "$RENDER_NAMESPACE" \
+            --output-dir "rendered/$chart/$env"
+        done
+      done
+  artifacts:
+    paths:
+      - rendered/
+    expire_in: 1 day
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH'
+
+kubeconform:
+  stage: scan
+  image:
+    name: ghcr.io/yannh/kubeconform:latest-alpine
+    entrypoint: [""]
+  needs:
+    - helm-template
+  script:
+    - |
+      set -eu
+      # -ignore-missing-schemas: deliberate default, not an oversight. Both
+      # this repo's charts and platform-gitops' rely on CRDs (Istio
+      # AuthorizationPolicy/PeerAuthentication here) that aren't in
+      # kubeconform's built-in Kubernetes schema set. The datreeio/CRDs-catalog
+      # schema-location below covers what it has (Gateway API, several
+      # common CRDs); anything neither source recognizes is skipped rather
+      # than failing the pipeline on a schema kubeconform simply doesn't
+      # ship. Core K8s/apps/networking kinds (Deployment, Service, ConfigMap,
+      # HPA, PDB, NetworkPolicy, ServiceAccount, Namespace, Pod, HTTPRoute)
+      # are always validated strictly and DO fail the pipeline on a real
+      # error.
+      kubeconform \
+        -ignore-missing-schemas \
+        -schema-location default \
+        -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+        -summary \
+        -verbose \
+        rendered
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH'
+
+checkov:
+  stage: scan
+  image:
+    name: bridgecrew/checkov:latest
+    entrypoint: [""]
+  needs:
+    - helm-template
+  script:
+    - checkov -d rendered --framework kubernetes --compact --config-file .checkov.yaml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH'

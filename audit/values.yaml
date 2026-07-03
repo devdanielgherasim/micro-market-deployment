@@ -35,10 +35,21 @@ securityContext:
   capabilities:
     drop:
       - ALL
-  readOnlyRootFilesystem: false
+  readOnlyRootFilesystem: true
   runAsGroup: 1001
   runAsNonRoot: true
   runAsUser: 1001
+
+# Root filesystem is read-only (above); Quarkus needs a writable /tmp at
+# runtime (temp files, multipart uploads). Mounted as an in-memory emptyDir
+# rather than relying on writable container layers.
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+
+volumes:
+  - name: tmp
+    emptyDir: {}
 
 livenessProbe:
   httpGet:
@@ -87,7 +98,7 @@ networkPolicy:
         - podSelector: { }
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ingress-nginx
+              kubernetes.io/metadata.name: istio-ingress
       ports:
         - protocol: TCP
           port: http
@@ -124,6 +135,12 @@ env:
     value: "update"
   - name: HIBERNATE_LOG_SQL
     value: "false"
+  - name: DEPLOYMENT_ENVIRONMENT
+    value: "dev"
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://alloy-otlp.monitoring.svc.cluster.local:4317"
+  - name: OTEL_TRACES_SAMPLER_ARG
+    value: "1.0"
   - name: HTTP_PORT
     value: "8080"
   - name: CORS_ORIGINS
@@ -151,7 +168,7 @@ configMaps:
     data:
       db.host: "postgresql.postgresql.svc.cluster.local"
       db.port: "5432"
-      db.name: "microservices"
+      db.name: "audit"
 
 secrets: { }
 
@@ -174,3 +191,33 @@ serviceAccount:
   automount: false
   annotations: { }
   name: ""
+
+namespace:
+  create: true
+  labels:
+    istio.io/dataplane-mode: ambient
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gateway
+      namespace: istio-ingress
+  hostnames:
+    - ""
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/audit
+      backendRefs:
+        - name: audit
+          port: 8080
+
+peerAuthentication:
+  enabled: true
+  mode: STRICT
+
+authorizationPolicy:
+  enabled: true
+  allowedNamespaces:
+    - istio-ingress
