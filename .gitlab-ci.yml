@@ -29,6 +29,7 @@ stages:
   - lint
   - template
   - scan
+  - promote
 
 variables:
   CHARTS: "catalog orders audit micro-market-frontend"
@@ -126,3 +127,176 @@ checkov:
     - checkov -d rendered --framework kubernetes --compact --config-file .checkov.yaml
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH'
+
+# =============================================================================
+# promote: GitOps image-tag write-back (Task 29). Writes real image tags into
+# `environments/<env>/<app>-values.yaml` and commits+pushes the change back to
+# this repo's default branch so ArgoCD's ApplicationSet (Task 27) picks it up
+# on its next sync -- without this, ArgoCD would sync the literal string
+# "REPLACED_BY_CI" as an image tag forever.
+#
+# Design notes:
+#   - Tool: `yq` (mikefarah/yq v4 syntax), per the parent plan's explicit
+#     decision ("automated GitOps image promotion (CI write-back commit with
+#     yq, not Image Updater)"). Image: plain `alpine:3.20` + `apk add git yq
+#     ca-certificates` in before_script -- no ready-made "git+yq" image is
+#     vetted/pinned anywhere else in this org, and this keeps the same
+#     focused/single-purpose-image convention the lint/template/scan jobs
+#     above already use, just assembled from two small, well-known apk
+#     packages instead of a third-party composite image.
+#   - VERIFIED LOCALLY (see plans/2026-07-04-ci-promote-stage.md) against real
+#     copies of environments/dev/catalog-values.yaml and
+#     environments/staging/catalog-values.yaml with yq v4.53.3: the write only
+#     changes `.image.tag`'s value -- `.image.repository` and every other key
+#     are untouched. NOTE: yq's `-i` round-trip is not byte-minimal on these
+#     files -- it collapses blank lines between mapping entries and re-flows
+#     trailing `#` comment spacing to one space on ANY `-i` write (a known
+#     go-yaml-v3 limitation, not something a yq flag fixes). The first promote
+#     commit against a given file will include that whitespace churn beyond
+#     the tag line; it's a one-time cosmetic cost, not a correctness issue.
+#   - KNOWN GAP, not fixed here (out of this task's repo scope -- see the plan
+#     file's "Known gap" section): CLOSED (2026-07-04) by the orchestrator.
+#     `promote-dev` no longer uses this repo's own $CI_COMMIT_SHA (which was a
+#     `deployment`-repo commit hash, unrelated to the SHA each service's
+#     build.sh actually tagged the pushed image with). Instead, each service
+#     repo's shared `image-supply-chain.gitlab-ci.yml` template gained a
+#     `trigger-deployment-promotion` job (after `cosign-verify` passes) that
+#     calls GitLab's Pipeline Trigger API on this project, passing
+#     `PROMOTED_APP`/`PROMOTED_IMAGE_TAG` as downstream pipeline variables.
+#     `promote-dev` below now runs only for triggered pipelines
+#     ($CI_PIPELINE_SOURCE == "pipeline") and writes exactly the one
+#     (app, tag) pair it was handed -- see that job's comment in
+#     utilities/ci-templates/image-supply-chain.gitlab-ci.yml for the human
+#     setup step required (a Pipeline Trigger token on this project).
+#   - Auth: CI_JOB_TOKEN cannot push (read-only/limited-API by default in
+#     GitLab). REQUIRES a human to create a Project or Group Access Token on
+#     this project with the `write_repository` scope (GitLab: Settings > CI/CD
+#     Access Tokens) and store it as a MASKED + PROTECTED CI/CD variable named
+#     `GITLAB_PROMOTE_TOKEN` (Settings > CI/CD > Variables). These jobs will
+#     fail fast with a clear error if it's unset. No such token was created or
+#     could be tested from this environment (no live GitLab access here) --
+#     this is a documented requirement, not a guess.
+#   - Loop prevention: GitLab's documented default behavior skips creating a
+#     pipeline entirely for any commit whose message contains `[skip ci]` /
+#     `[ci skip]` (case-insensitive, no `workflow:rules` needed since this
+#     file has no `workflow:` override) -- every write-back commit below
+#     includes that marker.
+#   - `resource_group: promote` serializes promote-dev/staging/prod across
+#     concurrent pipelines so two promotions can't race pushing to the same
+#     branch.
+# =============================================================================
+
+.promote-base:
+  stage: promote
+  image:
+    name: alpine:3.20
+    entrypoint: [""]
+  variables:
+    GIT_STRATEGY: clone
+  resource_group: promote
+  interruptible: false
+  before_script:
+    - apk add --no-cache git yq ca-certificates
+    - git config --global user.name "gitlab-promote-bot"
+    - git config --global user.email "gitlab-promote-bot@noreply.${CI_SERVER_HOST}"
+    - |
+      set -eu
+      : "${GITLAB_PROMOTE_TOKEN:?GITLAB_PROMOTE_TOKEN CI/CD variable is not set. A human must create a Project/Group Access Token (write_repository scope) and store it as a masked+protected variable of this name -- see plans/2026-07-04-ci-promote-stage.md.}"
+      # Username is arbitrary/non-blank for project/group access token basic
+      # auth (GitLab authenticates on the token value, not the username);
+      # "gitlab-ci-token" is reserved by convention for CI_JOB_TOKEN, so a
+      # distinct placeholder is used here to avoid implying that token type.
+      git remote set-url origin "https://promote-bot:${GITLAB_PROMOTE_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      # Re-fetch and reset to the live branch tip rather than trusting the
+      # pipeline's original checkout -- matters most for promote-staging/prod,
+      # which are `when: manual` and may run long after the triggering commit,
+      # possibly after an earlier promote-dev commit already landed.
+      git fetch origin "${CI_COMMIT_REF_NAME}"
+      git checkout -B "${CI_COMMIT_REF_NAME}" "origin/${CI_COMMIT_REF_NAME}"
+
+# Runs only for pipelines started via the GitLab Pipeline Trigger API
+# (CI_PIPELINE_SOURCE == "trigger" -- the value GitLab sets for API-trigger-token
+# pipelines, distinct from "pipeline" which is the multi-project `trigger:`
+# keyword's downstream-pipeline source). Each service repo's
+# trigger-deployment-promotion job (utilities/ci-templates/
+# image-supply-chain.gitlab-ci.yml) fires this with PROMOTED_APP/
+# PROMOTED_IMAGE_TAG set to its own $CI_PROJECT_NAME/$CI_COMMIT_SHA after its
+# cosign-verify gate passes -- writes exactly that one app's tag, not all 4
+# charts (each service builds and promotes independently).
+promote-dev:
+  extends: .promote-base
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+  script:
+    - |
+      set -eu
+      : "${PROMOTED_APP:?promote-dev must be triggered with a PROMOTED_APP variable (set by the triggering service repo's trigger-deployment-promotion job).}"
+      : "${PROMOTED_IMAGE_TAG:?promote-dev must be triggered with a PROMOTED_IMAGE_TAG variable (set by the triggering service repo's trigger-deployment-promotion job).}"
+      case " $CHARTS " in
+        *" ${PROMOTED_APP} "*) ;;
+        *) echo "ERROR: PROMOTED_APP '${PROMOTED_APP}' is not one of: ${CHARTS}" >&2; exit 1 ;;
+      esac
+      VALUES_FILE="environments/dev/${PROMOTED_APP}-values.yaml"
+      echo "== promote-dev: ${PROMOTED_APP} image.tag -> ${PROMOTED_IMAGE_TAG} =="
+      PROMOTED_IMAGE_TAG="${PROMOTED_IMAGE_TAG}" yq -i '.image.tag = strenv(PROMOTED_IMAGE_TAG)' "${VALUES_FILE}"
+      if git diff --quiet -- "${VALUES_FILE}"; then
+        echo "No image.tag change for ${PROMOTED_APP} (already at ${PROMOTED_IMAGE_TAG}); nothing to commit."
+        exit 0
+      fi
+      git add "${VALUES_FILE}"
+      git commit -m "chore(promote): dev/${PROMOTED_APP} -> ${PROMOTED_IMAGE_TAG} [skip ci]"
+      git push origin "HEAD:${CI_COMMIT_REF_NAME}"
+
+promote-staging:
+  extends: .promote-base
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  script:
+    - |
+      set -eu
+      for chart in $CHARTS; do
+        SRC="environments/dev/${chart}-values.yaml"
+        DST="environments/staging/${chart}-values.yaml"
+        TAG="$(yq '.image.tag' "$SRC")"
+        if [ -z "$TAG" ] || [ "$TAG" = "REPLACED_BY_CI" ] || [ "$TAG" = "null" ]; then
+          echo "ERROR: ${SRC} has no real image.tag yet (got '${TAG}'). Run promote-dev first." >&2
+          exit 1
+        fi
+        echo "== promote-staging: ${chart} dev(${TAG}) -> staging =="
+        TAG="$TAG" yq -i '.image.tag = strenv(TAG)' "$DST"
+      done
+      if git diff --quiet -- environments/staging/; then
+        echo "No image.tag changes for staging; nothing to commit."
+        exit 0
+      fi
+      git add environments/staging/*-values.yaml
+      git commit -m "chore(promote): staging <- dev [skip ci]"
+      git push origin "HEAD:${CI_COMMIT_REF_NAME}"
+
+promote-prod:
+  extends: .promote-base
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  script:
+    - |
+      set -eu
+      for chart in $CHARTS; do
+        SRC="environments/staging/${chart}-values.yaml"
+        DST="environments/prod/${chart}-values.yaml"
+        TAG="$(yq '.image.tag' "$SRC")"
+        if [ -z "$TAG" ] || [ "$TAG" = "REPLACED_BY_CI" ] || [ "$TAG" = "null" ]; then
+          echo "ERROR: ${SRC} has no real image.tag yet (got '${TAG}'). Run promote-staging first." >&2
+          exit 1
+        fi
+        echo "== promote-prod: ${chart} staging(${TAG}) -> prod =="
+        TAG="$TAG" yq -i '.image.tag = strenv(TAG)' "$DST"
+      done
+      if git diff --quiet -- environments/prod/; then
+        echo "No image.tag changes for prod; nothing to commit."
+        exit 0
+      fi
+      git add environments/prod/*-values.yaml
+      git commit -m "chore(promote): prod <- staging [skip ci]"
+      git push origin "HEAD:${CI_COMMIT_REF_NAME}"
