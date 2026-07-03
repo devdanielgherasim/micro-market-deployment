@@ -21,9 +21,8 @@ ingress:
   enabled: true
   className: "nginx"
   annotations:
-    acme.cert-manager.io/http01-edit-in-place: "true"
     kubernetes.io/ingress.class: "nginx"
-    cert-manager.io/cluster-issuer: "letsencrypt-production-cluster-issuer"
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare-dns"
   hosts:
     - host: ""  # Set by ArgoCD parameter
       paths:
@@ -54,10 +53,27 @@ ingress:
 
 autoscaling:
   enabled: true
-  minReplicas: 1
-  maxReplicas: 2
+  minReplicas: 2
+  maxReplicas: 4
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: http
+  egress:
+    - { }
 
 nodeSelector: { }
 
@@ -102,16 +118,63 @@ resources:
     cpu: 100m
     memory: 256Mi
 
+podSecurityContext:
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsGroup: 1001
+  runAsNonRoot: true
+  runAsUser: 1001
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 2
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 12
+
 strategy:
   type: RollingUpdate
   rollingUpdate:
     maxSurge: 1
     maxUnavailable: 0
 
+revisionHistoryLimit: 10
+progressDeadlineSeconds: 600
+minReadySeconds: 0
 terminationGracePeriodSeconds: 30
 
 serviceAccount:
-  create: false
-  automount: true
+  create: true
+  automount: false
   annotations: { }
   name: ""
