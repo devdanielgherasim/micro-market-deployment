@@ -1,0 +1,51 @@
+# catalog — STAGING environment overlay
+# Merged on top of catalog/values.yaml by the ArgoCD ApplicationSet.
+
+global:
+  environment: staging
+  domain: staging.danielgherasim.com
+  keycloak:
+    url: "https://auth.danielgherasim.com/auth/realms/microservices"
+    realm: microservices
+
+image:
+  #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/staging/catalog
+  #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/catalog
+  #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-staging/catalog
+  repository: "REPLACED_BY_CI"
+  tag: "REPLACED_BY_CI"
+
+# Staging: 2 replicas baseline, autoscaling on.
+replicaCount: 2
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+extraEnv:
+  - name: QUARKUS_LOG_LEVEL
+    value: "INFO"
+  - name: DEPLOYMENT_ENVIRONMENT
+    value: "staging"
+  - name: CORS_ORIGINS
+    value: "https://staging.danielgherasim.com"
+  - name: OTEL_TRACES_SAMPLER_ARG
+    value: "0.5"
+  # Demo seed data enabled in staging (ephemeral demo cluster). import.sql only
+  # loads under drop-and-create, so seeded rows reset on pod restart.
+  - name: HIBERNATE_GENERATION
+    value: "drop-and-create"
+  - name: HIBERNATE_LOAD_SCRIPT
+    value: "import.sql"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"

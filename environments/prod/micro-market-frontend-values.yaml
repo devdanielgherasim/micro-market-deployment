@@ -1,0 +1,40 @@
+# micro-market-frontend — PROD environment overlay
+# Merged on top of micro-market-frontend/values.yaml by the ArgoCD ApplicationSet.
+
+global:
+  environment: prod
+  domain: danielgherasim.com              # apex hostname (D7)
+  keycloak:
+    url: "https://auth.danielgherasim.com"
+    realm: microservices
+
+image:
+  #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/prod/micro-market-frontend
+  #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/micro-market-frontend
+  #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-prod/micro-market-frontend
+  repository: "REPLACED_BY_CI"
+  tag: "REPLACED_BY_CI"
+
+# Prod: 3 replica baseline + autoscaling headroom.
+replicaCount: 3
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+configMaps:
+  micro-market-frontend-config:
+    data:
+      NEXT_PUBLIC_API_URL: "https://danielgherasim.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.danielgherasim.com"
+      NEXT_PUBLIC_LOG_LEVEL: "info"

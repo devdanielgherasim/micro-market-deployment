@@ -1,0 +1,48 @@
+# catalog — PROD environment overlay
+# Merged on top of catalog/values.yaml by the ArgoCD ApplicationSet.
+
+global:
+  environment: prod
+  domain: danielgherasim.com              # apex hostname (D7)
+  keycloak:
+    url: "https://auth.danielgherasim.com/auth/realms/microservices"
+    realm: microservices
+
+image:
+  #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/prod/catalog
+  #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/catalog
+  #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-prod/catalog
+  repository: "REPLACED_BY_CI"
+  tag: "REPLACED_BY_CI"
+
+# Prod: 3 replica baseline + autoscaling headroom.
+replicaCount: 3
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+extraEnv:
+  - name: QUARKUS_LOG_LEVEL
+    value: "INFO"
+  - name: DEPLOYMENT_ENVIRONMENT
+    value: "prod"
+  - name: CORS_ORIGINS
+    value: "https://danielgherasim.com"
+  - name: OTEL_TRACES_SAMPLER_ARG
+    value: "0.1"                           # sample 10% of traces in prod
+  # No demo seed data in prod. update = create missing schema, never drop.
+  - name: HIBERNATE_GENERATION
+    value: "update"
+  - name: HIBERNATE_LOG_SQL
+    value: "false"

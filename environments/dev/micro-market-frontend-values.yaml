@@ -1,0 +1,41 @@
+# micro-market-frontend — DEV environment overlay
+# Merged on top of micro-market-frontend/values.yaml by the ArgoCD ApplicationSet.
+
+global:
+  environment: dev
+  domain: dev.danielgherasim.com          # drives the HTTPRoute hostname (ingress.yaml default)
+  keycloak:
+    url: "https://auth.danielgherasim.com"
+    realm: microservices
+
+image:
+  # Per-cloud/per-env registry path, written by CI build.sh / the Task 29 promote stage:
+  #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/dev/micro-market-frontend
+  #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/micro-market-frontend
+  #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-dev/micro-market-frontend
+  repository: "REPLACED_BY_CI"
+  tag: "REPLACED_BY_CI"
+
+# Dev: single replica, no autoscaling.
+replicaCount: 1
+autoscaling:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 256Mi
+
+# Per-env frontend config (deep-merged into the base configMap data map).
+# NEXT_PUBLIC_LOG_LEVEL is read at runtime by src/utils/logger.ts (client-bundle
+# NEXT_PUBLIC_* values are normally build-time-inlined; wiring it here covers the
+# standalone server runtime and documents intent).
+configMaps:
+  micro-market-frontend-config:
+    data:
+      NEXT_PUBLIC_API_URL: "https://dev.danielgherasim.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.danielgherasim.com"
+      NEXT_PUBLIC_LOG_LEVEL: "debug"

@@ -50,7 +50,7 @@ helm-lint:
         helm lint "$chart"
         for env in $ENVS; do
           echo "== helm lint: $chart ($env) =="
-          helm lint "$chart" -f "$chart/environments/$env-values.yaml"
+          helm lint "$chart" -f "environments/$env/$chart-values.yaml"
         done
       done
   rules:
@@ -70,7 +70,7 @@ helm-template:
       for chart in $CHARTS; do
         for env in $ENVS; do
           helm template "$chart" \
-            -f "$chart/environments/$env-values.yaml" \
+            -f "environments/$env/$chart-values.yaml" \
             -f ci/global-values.yaml \
             --set-string "image.repository=example.azurecr.io/$chart" \
             --namespace "$RENDER_NAMESPACE" \

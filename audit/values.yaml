@@ -131,20 +131,10 @@ env:
       configMapKeyRef:
         name: audit-config
         key: db.name
-  - name: HIBERNATE_GENERATION
-    value: "update"
-  - name: HIBERNATE_LOG_SQL
-    value: "false"
-  - name: DEPLOYMENT_ENVIRONMENT
-    value: "dev"
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://alloy-otlp.monitoring.svc.cluster.local:4317"
-  - name: OTEL_TRACES_SAMPLER_ARG
-    value: "1.0"
   - name: HTTP_PORT
     value: "8080"
-  - name: CORS_ORIGINS
-    value: "https://danielgherasim.com"
   - name: KEYCLOAK_URL
     valueFrom:
       configMapKeyRef:
@@ -162,6 +152,13 @@ env:
       secretKeyRef:
         name: keycloak-secret
         key: audit-service-secret
+
+# Per-environment env vars appended by the deployment template from
+# environments/<env>/audit-values.yaml. Separate list because Helm replaces
+# (not merges) lists across value files. Holds QUARKUS_LOG_LEVEL, CORS_ORIGINS,
+# DEPLOYMENT_ENVIRONMENT, OTEL_TRACES_SAMPLER_ARG and the HIBERNATE_* demo-seed
+# toggles.
+extraEnv: []
 
 configMaps:
   audit-config:

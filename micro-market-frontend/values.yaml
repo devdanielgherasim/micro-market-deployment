@@ -63,6 +63,11 @@ affinity:
 
 env: []
 
+# Per-environment extra env vars appended by the deployment template. The
+# frontend carries its per-env config in the configMap below (NEXT_PUBLIC_*),
+# so this is normally empty; kept for parity with the backend charts.
+extraEnv: []
+
 # ConfigMap for environment variables
 configMaps:
   micro-market-frontend-config:
@@ -70,8 +75,9 @@ configMaps:
       NEXT_PUBLIC_KEYCLOAK_URL: ""  # Set by ArgoCD parameter
       NEXT_PUBLIC_KEYCLOAK_REALM: "microservices"
       NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "micro-market-frontend"
-      NEXT_PUBLIC_API_URL: ""  # Set by ArgoCD parameter
+      NEXT_PUBLIC_API_URL: ""  # Set per environment (environments/<env>/micro-market-frontend-values.yaml)
       NEXT_PUBLIC_API_TIMEOUT: "30000"
+      NEXT_PUBLIC_LOG_LEVEL: "info"  # Overridden to "debug" in dev; read by src/utils/logger.ts
       NODE_ENV: "production"
 
 # Reference the ConfigMap in envFrom

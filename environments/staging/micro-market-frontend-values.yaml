@@ -1,0 +1,40 @@
+# micro-market-frontend — STAGING environment overlay
+# Merged on top of micro-market-frontend/values.yaml by the ArgoCD ApplicationSet.
+
+global:
+  environment: staging
+  domain: staging.danielgherasim.com
+  keycloak:
+    url: "https://auth.danielgherasim.com"
+    realm: microservices
+
+image:
+  #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/staging/micro-market-frontend
+  #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/micro-market-frontend
+  #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-staging/micro-market-frontend
+  repository: "REPLACED_BY_CI"
+  tag: "REPLACED_BY_CI"
+
+# Staging: 2 replicas baseline, autoscaling on.
+replicaCount: 2
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
+configMaps:
+  micro-market-frontend-config:
+    data:
+      NEXT_PUBLIC_API_URL: "https://staging.danielgherasim.com"
+      NEXT_PUBLIC_KEYCLOAK_URL: "https://auth.danielgherasim.com"
+      NEXT_PUBLIC_LOG_LEVEL: "info"
