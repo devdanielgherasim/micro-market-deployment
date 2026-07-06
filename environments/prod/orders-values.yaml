@@ -41,8 +41,7 @@ extraEnv:
     value: "https://danielgherasim.com"
   - name: OTEL_TRACES_SAMPLER_ARG
     value: "0.1"                           # sample 10% of traces in prod
-  # No demo seed data in prod. update = create missing schema, never drop.
   - name: HIBERNATE_GENERATION
-    value: "update"
+    value: "validate"
   - name: HIBERNATE_LOG_SQL
     value: "false"

@@ -42,7 +42,6 @@ extraEnv:
     value: "https://dev.danielgherasim.com"
   - name: OTEL_TRACES_SAMPLER_ARG
     value: "1.0"                           # trace everything in dev
-  # Demo seed data: drop-and-create + import.sql loads sample rows on start.
   - name: HIBERNATE_GENERATION
     value: "drop-and-create"
   - name: HIBERNATE_LOAD_SCRIPT

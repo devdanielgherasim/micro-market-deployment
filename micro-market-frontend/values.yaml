@@ -10,7 +10,7 @@ replicaCount: 1
 image:
   repository: ""  # Set by ArgoCD parameter
   tag: "1.0.0"
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 service:
   type: ClusterIP
@@ -31,6 +31,14 @@ podDisruptionBudget:
   enabled: true
   minAvailable: 1
 
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+
 networkPolicy:
   enabled: true
   ingress:
@@ -42,24 +50,29 @@ networkPolicy:
         - protocol: TCP
           port: http
   egress:
-    - { }
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: keycloak
+      ports:
+        - protocol: TCP
+          port: 8080
 
 nodeSelector: { }
 
 tolerations: [ ]
 
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - micro-market-frontend
-          topologyKey: kubernetes.io/hostname
+affinity: {}
 
 env: []
 
