@@ -219,10 +219,10 @@ checkov:
 # pipelines, distinct from "pipeline" which is the multi-project `trigger:`
 # keyword's downstream-pipeline source). Each service repo's
 # trigger-deployment-promotion job (utilities/ci-templates/
-# image-supply-chain.gitlab-ci.yml) fires this with PROMOTED_APP/
-# PROMOTED_IMAGE_TAG set to its own $CI_PROJECT_NAME/$CI_COMMIT_SHA after its
-# cosign-verify gate passes -- writes exactly that one app's tag, not all 4
-# charts (each service builds and promotes independently).
+# image-supply-chain.gitlab-ci.yml) fires this with PROMOTED_APP,
+# PROMOTED_IMAGE_REPOSITORY, and PROMOTED_IMAGE_TAG after its cosign-verify gate
+# passes -- writes exactly that one app's image, not all 4 charts (each service
+# builds and promotes independently).
 promote-dev:
   extends: .promote-base
   rules:
@@ -231,16 +231,18 @@ promote-dev:
     - |
       set -eu
       : "${PROMOTED_APP:?promote-dev must be triggered with a PROMOTED_APP variable (set by the triggering service repo's trigger-deployment-promotion job).}"
+      : "${PROMOTED_IMAGE_REPOSITORY:?promote-dev must be triggered with a PROMOTED_IMAGE_REPOSITORY variable (for example: <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/dev/<app>).}"
       : "${PROMOTED_IMAGE_TAG:?promote-dev must be triggered with a PROMOTED_IMAGE_TAG variable (set by the triggering service repo's trigger-deployment-promotion job).}"
       case " $CHARTS " in
         *" ${PROMOTED_APP} "*) ;;
         *) echo "ERROR: PROMOTED_APP '${PROMOTED_APP}' is not one of: ${CHARTS}" >&2; exit 1 ;;
       esac
       VALUES_FILE="environments/dev/${PROMOTED_APP}-values.yaml"
-      echo "== promote-dev: ${PROMOTED_APP} image.tag -> ${PROMOTED_IMAGE_TAG} =="
-      PROMOTED_IMAGE_TAG="${PROMOTED_IMAGE_TAG}" yq -i '.image.tag = strenv(PROMOTED_IMAGE_TAG)' "${VALUES_FILE}"
+      echo "== promote-dev: ${PROMOTED_APP} image -> ${PROMOTED_IMAGE_REPOSITORY}:${PROMOTED_IMAGE_TAG} =="
+      PROMOTED_IMAGE_REPOSITORY="${PROMOTED_IMAGE_REPOSITORY}" PROMOTED_IMAGE_TAG="${PROMOTED_IMAGE_TAG}" \
+        yq -i '.image.repository = strenv(PROMOTED_IMAGE_REPOSITORY) | .image.tag = strenv(PROMOTED_IMAGE_TAG)' "${VALUES_FILE}"
       if git diff --quiet -- "${VALUES_FILE}"; then
-        echo "No image.tag change for ${PROMOTED_APP} (already at ${PROMOTED_IMAGE_TAG}); nothing to commit."
+        echo "No image change for ${PROMOTED_APP} (already at ${PROMOTED_IMAGE_REPOSITORY}:${PROMOTED_IMAGE_TAG}); nothing to commit."
         exit 0
       fi
       git add "${VALUES_FILE}"
