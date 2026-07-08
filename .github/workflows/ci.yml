@@ -183,6 +183,7 @@ jobs:
       - kubeconform
       - checkov
     if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'image-promoted' }}
+    environment: dev
     concurrency: deployment-promote
     steps:
       - uses: actions/checkout@v7
@@ -240,6 +241,7 @@ jobs:
       - kubeconform
       - checkov
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'staging' }}
+    environment: staging
     concurrency: deployment-promote
     steps:
       - uses: actions/checkout@v7
@@ -292,6 +294,7 @@ jobs:
       - kubeconform
       - checkov
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'prod' }}
+    environment: production
     concurrency: deployment-promote
     steps:
       - uses: actions/checkout@v7
