@@ -50,7 +50,7 @@ jobs:
     name: Helm lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Lint charts
         env:
@@ -84,7 +84,7 @@ jobs:
     needs:
       - helm-lint
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Render charts
         env:
@@ -154,7 +154,7 @@ jobs:
     needs:
       - helm-template
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download rendered manifests
         uses: actions/download-artifact@v8
@@ -185,7 +185,7 @@ jobs:
     if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'image-promoted' }}
     concurrency: deployment-promote
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -242,7 +242,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'staging' }}
     concurrency: deployment-promote
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -294,7 +294,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'prod' }}
     concurrency: deployment-promote
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
