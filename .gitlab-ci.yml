@@ -24,6 +24,18 @@
 #   - Three focused jobs share a `rendered/` artifact rather than one image
 #     with helm+kubeconform+checkov baked in: alpine/helm, kubeconform's own
 #     image, and checkov's own image, chained via `needs:`.
+#   - Job image tags (2026-07-08 audit): `alpine/helm` bumped 3.16.3 -> 3.21.2
+#     (latest published Helm v3.x patch; a same-major, non-breaking bump —
+#     `helm lint`/`helm template` for all 4 charts x 3 envs verified locally
+#     under both this tag's Helm CLI and a local v4.1.4 install, both clean).
+#     `kubeconform`/`checkov` were previously pinned to floating `latest`/
+#     `latest-alpine` tags (non-reproducible CI runs); repinned to the
+#     current stable release as of 2026-07-08 (`v0.8.0-alpine`, `3.3.7`).
+#     NOT applied here: migrating `alpine/helm` off the v3.x line to Helm v4
+#     (current stable; v3 bug-fix support ends 2026-07-08, security-fix
+#     support ends 2026-11-11) — a major-version tooling bump flagged for a
+#     dedicated follow-up rather than folded into an audit pass, even though
+#     local `helm lint`/`helm template` already passed clean under v4.1.4.
 
 stages:
   - lint
@@ -39,7 +51,7 @@ variables:
 helm-lint:
   stage: lint
   image:
-    name: alpine/helm:3.16.3
+    name: alpine/helm:3.21.2
     entrypoint: [""]
   script:
     - |
@@ -60,7 +72,7 @@ helm-lint:
 helm-template:
   stage: template
   image:
-    name: alpine/helm:3.16.3
+    name: alpine/helm:3.21.2
     entrypoint: [""]
   needs:
     - helm-lint
@@ -88,7 +100,7 @@ helm-template:
 kubeconform:
   stage: scan
   image:
-    name: ghcr.io/yannh/kubeconform:latest-alpine
+    name: ghcr.io/yannh/kubeconform:v0.8.0-alpine
     entrypoint: [""]
   needs:
     - helm-template
@@ -119,7 +131,7 @@ kubeconform:
 checkov:
   stage: scan
   image:
-    name: bridgecrew/checkov:latest
+    name: bridgecrew/checkov:3.3.7
     entrypoint: [""]
   needs:
     - helm-template
