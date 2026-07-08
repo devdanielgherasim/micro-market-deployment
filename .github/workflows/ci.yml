@@ -1,0 +1,336 @@
+name: Deployment GitOps CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+    types:
+      - image-promoted
+  workflow_dispatch:
+    inputs:
+      promote-environment:
+        description: Environment promotion to run
+        required: true
+        type: choice
+        default: none
+        options:
+          - none
+          - staging
+          - prod
+
+permissions:
+  contents: write
+  security-events: write
+  actions: read
+  pull-requests: read
+
+env:
+  CHARTS: >-
+    catalog
+    orders
+    audit
+    micro-market-frontend
+  ENVS: >-
+    dev
+    staging
+    prod
+  RENDER_NAMESPACE: microservices
+  YQ_IMAGE: mikefarah/yq:4.53.3
+
+jobs:
+  security-scan-gate:
+    name: Security scan gate
+    uses: devdanielgherasim/micro-market-utilities/.github/workflows/security-scan-gate.yml@main
+    with:
+      codeql-languages: actions
+
+  helm-lint:
+    name: Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint charts
+        env:
+          CHARTS: ${{ env.CHARTS }}
+          ENVS: ${{ env.ENVS }}
+        run: |
+          set -eu
+          docker run --rm \
+            --entrypoint sh \
+            -v "${PWD}:/work" \
+            -w /work \
+            -e CHARTS \
+            -e ENVS \
+            alpine/helm:3.21.2 \
+            -ec '
+              for chart in ${CHARTS}; do
+                echo "== helm dependency build: ${chart} (no-op unless Chart.yaml gains a dependencies: block) =="
+                helm dependency build "${chart}" || true
+                echo "== helm lint: ${chart} (default values) =="
+                helm lint "${chart}"
+                for env in ${ENVS}; do
+                  echo "== helm lint: ${chart} (${env}) =="
+                  helm lint "${chart}" -f "environments/${env}/${chart}-values.yaml"
+                done
+              done
+            '
+
+  helm-template:
+    name: Helm template
+    runs-on: ubuntu-latest
+    needs:
+      - helm-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render charts
+        env:
+          CHARTS: ${{ env.CHARTS }}
+          ENVS: ${{ env.ENVS }}
+          RENDER_NAMESPACE: ${{ env.RENDER_NAMESPACE }}
+        run: |
+          set -eu
+          docker run --rm \
+            --entrypoint sh \
+            -v "${PWD}:/work" \
+            -w /work \
+            -e CHARTS \
+            -e ENVS \
+            -e RENDER_NAMESPACE \
+            alpine/helm:3.21.2 \
+            -ec '
+              mkdir -p rendered
+              for chart in ${CHARTS}; do
+                for env in ${ENVS}; do
+                  helm template "${chart}" \
+                    -f "environments/${env}/${chart}-values.yaml" \
+                    -f ci/global-values.yaml \
+                    --set-string "image.repository=example.azurecr.io/${chart}" \
+                    --namespace "${RENDER_NAMESPACE}" \
+                    --output-dir "rendered/${chart}/${env}"
+                done
+              done
+            '
+
+      - name: Upload rendered manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered/
+          retention-days: 1
+          if-no-files-found: error
+
+  kubeconform:
+    name: Kubeconform
+    runs-on: ubuntu-latest
+    needs:
+      - helm-template
+    steps:
+      - name: Download rendered manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered
+
+      - name: Validate Kubernetes schemas
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${PWD}/rendered:/rendered:ro" \
+            ghcr.io/yannh/kubeconform:v0.8.0-alpine \
+            -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -summary \
+            -verbose \
+            /rendered
+
+  checkov:
+    name: Checkov
+    runs-on: ubuntu-latest
+    needs:
+      - helm-template
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download rendered manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: rendered-manifests
+          path: rendered
+
+      - name: Scan rendered Kubernetes manifests
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${PWD}:/work" \
+            -w /work \
+            bridgecrew/checkov:3.3.7 \
+            -d rendered \
+            --framework kubernetes \
+            --compact \
+            --config-file .checkov.yaml
+
+  promote-dev:
+    name: Promote dev
+    runs-on: ubuntu-latest
+    needs:
+      - security-scan-gate
+      - helm-lint
+      - kubeconform
+      - checkov
+    if: ${{ github.event_name == 'repository_dispatch' && github.event.action == 'image-promoted' }}
+    concurrency: deployment-promote
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Write dev image values
+        env:
+          CHARTS: ${{ env.CHARTS }}
+          PROMOTED_APP: ${{ github.event.client_payload.promoted_app }}
+          PROMOTED_IMAGE_REPOSITORY: ${{ github.event.client_payload.promoted_image_repository }}
+          PROMOTED_IMAGE_TAG: ${{ github.event.client_payload.promoted_image_tag }}
+          YQ_IMAGE: ${{ env.YQ_IMAGE }}
+        run: |
+          set -eu
+          : "${PROMOTED_APP:?repository_dispatch payload missing promoted_app}"
+          : "${PROMOTED_IMAGE_REPOSITORY:?repository_dispatch payload missing promoted_image_repository}"
+          : "${PROMOTED_IMAGE_TAG:?repository_dispatch payload missing promoted_image_tag}"
+
+          case " ${CHARTS} " in
+            *" ${PROMOTED_APP} "*) ;;
+            *) echo "ERROR: PROMOTED_APP '${PROMOTED_APP}' is not one of: ${CHARTS}" >&2; exit 1 ;;
+          esac
+
+          git pull --ff-only origin main
+          values_file="environments/dev/${PROMOTED_APP}-values.yaml"
+          echo "== promote-dev: ${PROMOTED_APP} image -> ${PROMOTED_IMAGE_REPOSITORY}:${PROMOTED_IMAGE_TAG} =="
+          docker run --rm \
+            -v "${PWD}:/work" \
+            -w /work \
+            -e PROMOTED_IMAGE_REPOSITORY \
+            -e PROMOTED_IMAGE_TAG \
+            "${YQ_IMAGE}" \
+            -i '.image.repository = strenv(PROMOTED_IMAGE_REPOSITORY) | .image.tag = strenv(PROMOTED_IMAGE_TAG)' \
+            "${values_file}"
+
+          if git diff --quiet -- "${values_file}"; then
+            echo "No image change for ${PROMOTED_APP}; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-promote-bot"
+          git config user.email "github-promote-bot@users.noreply.github.com"
+          git add "${values_file}"
+          git commit -m "chore(promote): dev/${PROMOTED_APP} -> ${PROMOTED_IMAGE_TAG} [skip ci]"
+          git push origin HEAD:main
+
+  promote-staging:
+    name: Promote staging
+    runs-on: ubuntu-latest
+    needs:
+      - security-scan-gate
+      - helm-lint
+      - kubeconform
+      - checkov
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'staging' }}
+    concurrency: deployment-promote
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Copy dev tags to staging
+        env:
+          CHARTS: ${{ env.CHARTS }}
+          YQ_IMAGE: ${{ env.YQ_IMAGE }}
+        run: |
+          set -eu
+          git pull --ff-only origin main
+          for chart in ${CHARTS}; do
+            src="environments/dev/${chart}-values.yaml"
+            dst="environments/staging/${chart}-values.yaml"
+            tag="$(docker run --rm -v "${PWD}:/work" -w /work "${YQ_IMAGE}" '.image.tag' "${src}")"
+            if [ -z "${tag}" ] || [ "${tag}" = "REPLACED_BY_CI" ] || [ "${tag}" = "null" ]; then
+              echo "ERROR: ${src} has no real image.tag yet (got '${tag}'). Run promote-dev first." >&2
+              exit 1
+            fi
+            echo "== promote-staging: ${chart} dev(${tag}) -> staging =="
+            TAG="${tag}" docker run --rm \
+              -v "${PWD}:/work" \
+              -w /work \
+              -e TAG \
+              "${YQ_IMAGE}" \
+              -i '.image.tag = strenv(TAG)' \
+              "${dst}"
+          done
+
+          if git diff --quiet -- environments/staging/; then
+            echo "No image.tag changes for staging; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-promote-bot"
+          git config user.email "github-promote-bot@users.noreply.github.com"
+          git add environments/staging/*-values.yaml
+          git commit -m "chore(promote): staging <- dev [skip ci]"
+          git push origin HEAD:main
+
+  promote-prod:
+    name: Promote prod
+    runs-on: ubuntu-latest
+    needs:
+      - security-scan-gate
+      - helm-lint
+      - kubeconform
+      - checkov
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote-environment == 'prod' }}
+    concurrency: deployment-promote
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Copy staging tags to prod
+        env:
+          CHARTS: ${{ env.CHARTS }}
+          YQ_IMAGE: ${{ env.YQ_IMAGE }}
+        run: |
+          set -eu
+          git pull --ff-only origin main
+          for chart in ${CHARTS}; do
+            src="environments/staging/${chart}-values.yaml"
+            dst="environments/prod/${chart}-values.yaml"
+            tag="$(docker run --rm -v "${PWD}:/work" -w /work "${YQ_IMAGE}" '.image.tag' "${src}")"
+            if [ -z "${tag}" ] || [ "${tag}" = "REPLACED_BY_CI" ] || [ "${tag}" = "null" ]; then
+              echo "ERROR: ${src} has no real image.tag yet (got '${tag}'). Run promote-staging first." >&2
+              exit 1
+            fi
+            echo "== promote-prod: ${chart} staging(${tag}) -> prod =="
+            TAG="${tag}" docker run --rm \
+              -v "${PWD}:/work" \
+              -w /work \
+              -e TAG \
+              "${YQ_IMAGE}" \
+              -i '.image.tag = strenv(TAG)' \
+              "${dst}"
+          done
+
+          if git diff --quiet -- environments/prod/; then
+            echo "No image.tag changes for prod; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-promote-bot"
+          git config user.email "github-promote-bot@users.noreply.github.com"
+          git add environments/prod/*-values.yaml
+          git commit -m "chore(promote): prod <- staging [skip ci]"
+          git push origin HEAD:main

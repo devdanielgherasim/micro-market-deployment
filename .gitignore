@@ -1,5 +1,6 @@
 # Local persistent agent plans
 /plans/
+/rendered/
 
 # Local assistant/tool state
 /.claude/
