@@ -5,25 +5,22 @@
 
 global:
   environment: dev
-  domain: dev.danielgherasim.com          # drives the HTTPRoute hostname (ingress.yaml default)
+  domain: dev.danielgherasim.com # drives the HTTPRoute hostname (ingress.yaml default)
   keycloak:
     url: "https://auth.danielgherasim.com/auth/realms/microservices"
     realm: microservices
-
 image:
   # Per-cloud/per-env registry path, written by CI build.sh / the Task 29 promote
   # stage — cannot be a single static value across clouds. Formulas:
   #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/dev/audit
   #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/audit
   #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-dev/audit
-  repository: "REPLACED_BY_CI"
-  tag: "REPLACED_BY_CI"                    # git SHA, written back by CI promote (Task 29)
-
+  repository: "acrdanielgherasimmicroservicesdev.azurecr.io/danielgherasim-microservices/audit"
+  tag: "abc04086b4a185f923de0624f32d483301bf9a08" # git SHA, written back by CI promote (Task 29)
 # Dev: single replica, no autoscaling.
 replicaCount: 1
 autoscaling:
   enabled: false
-
 resources:
   requests:
     cpu: 50m
@@ -31,7 +28,6 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
-
 # Per-env container env (appended to the base env list by the deployment template).
 extraEnv:
   - name: QUARKUS_LOG_LEVEL
@@ -41,7 +37,7 @@ extraEnv:
   - name: CORS_ORIGINS
     value: "https://dev.danielgherasim.com"
   - name: OTEL_TRACES_SAMPLER_ARG
-    value: "1.0"                           # trace everything in dev
+    value: "1.0" # trace everything in dev
   - name: HIBERNATE_GENERATION
     value: "drop-and-create"
   - name: HIBERNATE_LOAD_SCRIPT
