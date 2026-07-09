@@ -117,19 +117,17 @@ networkPolicy:
         - protocol: TCP
           port: 53
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: postgresql
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
           port: 5432
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: keycloak
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
-          port: 8080
+          port: 443
     - to:
         - namespaceSelector:
             matchLabels:
@@ -162,19 +160,19 @@ env:
         key: password
   - name: DB_HOST
     valueFrom:
-      configMapKeyRef:
-        name: catalog-config
-        key: db.host
+      secretKeyRef:
+        name: catalog-db-secret
+        key: host
   - name: DB_PORT
     valueFrom:
-      configMapKeyRef:
-        name: catalog-config
-        key: db.port
+      secretKeyRef:
+        name: catalog-db-secret
+        key: port
   - name: DB_NAME
     valueFrom:
-      configMapKeyRef:
-        name: catalog-config
-        key: db.name
+      secretKeyRef:
+        name: catalog-db-secret
+        key: database
   - name: OTEL_EXPORTER_OTLP_ENDPOINT
     value: "http://alloy-otlp.monitoring.svc.cluster.local:4317"
   - name: KEYCLOAK_URL
@@ -204,10 +202,7 @@ extraEnv: []
 
 configMaps:
   catalog-config:
-    data:
-      db.host: "postgresql.postgresql.svc.cluster.local"
-      db.port: "5432"
-      db.name: "catalog"
+    data: {}
 
 secrets: { }
 

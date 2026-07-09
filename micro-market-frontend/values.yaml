@@ -61,12 +61,11 @@ networkPolicy:
         - protocol: TCP
           port: 8080
     - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: keycloak
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
-          port: 8080
+          port: 443
 
 nodeSelector: { }
 
