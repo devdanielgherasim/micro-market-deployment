@@ -15,22 +15,20 @@ image:
   repository: "REPLACED_BY_CI"
   tag: "REPLACED_BY_CI"
 
-# Staging: 2 replicas baseline, autoscaling on.
-replicaCount: 2
+# Staging: sized to match dev — the free-tier 4-vCPU quota is shared across
+# dev/staging/prod in the same cluster (ADR-7), not per-environment. See
+# plans/2026-07-09-match-dev-app-sizing.md.
+replicaCount: 1
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 4
-  targetCPUUtilizationPercentage: 75
-  targetMemoryUtilizationPercentage: 80
+  enabled: false
 
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
+    cpu: 50m
+    memory: 64Mi
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 250m
+    memory: 256Mi
 
 extraEnv:
   - name: QUARKUS_LOG_LEVEL
