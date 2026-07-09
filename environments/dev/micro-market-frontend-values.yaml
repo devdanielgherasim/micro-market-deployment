@@ -3,24 +3,21 @@
 
 global:
   environment: dev
-  domain: dev.danielgherasim.com          # drives the HTTPRoute hostname (ingress.yaml default)
+  domain: dev.danielgherasim.com # drives the HTTPRoute hostname (ingress.yaml default)
   keycloak:
     url: "https://auth.danielgherasim.com"
     realm: microservices
-
 image:
   # Per-cloud/per-env registry path, written by CI build.sh / the Task 29 promote stage:
   #   AWS ECR   <acct>.dkr.ecr.<region>.amazonaws.com/danielgherasim-microservices/dev/micro-market-frontend
   #   Azure ACR <acr>.azurecr.io/danielgherasimmicroservices/micro-market-frontend
   #   GCP AR    <region>-docker.pkg.dev/<project>/danielgherasim-microservices-dev/micro-market-frontend
-  repository: "REPLACED_BY_CI"
-  tag: "REPLACED_BY_CI"
-
+  repository: "acrdanielgherasimmicroservicesdev.azurecr.io/danielgherasim-microservices/micro-market-frontend"
+  tag: "67f20e52ecef8ca9b4c7e34c112417b59444d7f9"
 # Dev: single replica, no autoscaling.
 replicaCount: 1
 autoscaling:
   enabled: false
-
 resources:
   requests:
     cpu: 50m
@@ -28,7 +25,6 @@ resources:
   limits:
     cpu: 100m
     memory: 256Mi
-
 # Per-env frontend config (deep-merged into the base configMap data map).
 # NEXT_PUBLIC_LOG_LEVEL is read at runtime by src/utils/logger.ts (client-bundle
 # NEXT_PUBLIC_* values are normally build-time-inlined; wiring it here covers the
