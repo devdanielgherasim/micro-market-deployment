@@ -213,6 +213,7 @@ jobs:
           values_file="environments/dev/${PROMOTED_APP}-values.yaml"
           echo "== promote-dev: ${PROMOTED_APP} image -> ${PROMOTED_IMAGE_REPOSITORY}:${PROMOTED_IMAGE_TAG} =="
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "${PWD}:/work" \
             -w /work \
             -e PROMOTED_IMAGE_REPOSITORY \
@@ -266,6 +267,7 @@ jobs:
             fi
             echo "== promote-staging: ${chart} dev(${tag}) -> staging =="
             TAG="${tag}" docker run --rm \
+              --user "$(id -u):$(id -g)" \
               -v "${PWD}:/work" \
               -w /work \
               -e TAG \
@@ -319,6 +321,7 @@ jobs:
             fi
             echo "== promote-prod: ${chart} staging(${tag}) -> prod =="
             TAG="${tag}" docker run --rm \
+              --user "$(id -u):$(id -g)" \
               -v "${PWD}:/work" \
               -w /work \
               -e TAG \
