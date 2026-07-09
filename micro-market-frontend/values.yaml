@@ -199,8 +199,7 @@ httpRoute:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: micro-market-frontend
-          port: 8080
+        - port: 8080
 
 peerAuthentication:
   enabled: true

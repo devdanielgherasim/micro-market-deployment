@@ -238,8 +238,7 @@ httpRoute:
             type: PathPrefix
             value: /api/audit
       backendRefs:
-        - name: audit
-          port: 8080
+        - port: 8080
 
 peerAuthentication:
   enabled: true

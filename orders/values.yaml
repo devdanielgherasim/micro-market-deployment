@@ -247,8 +247,7 @@ httpRoute:
             type: PathPrefix
             value: /api/orders
       backendRefs:
-        - name: orders
-          port: 8080
+        - port: 8080
 
 peerAuthentication:
   enabled: true
