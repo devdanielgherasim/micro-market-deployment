@@ -10,7 +10,7 @@
 # templates ArgoCD would actually produce, without changing any chart default.
 #
 # Not used by ArgoCD/Helm in real syncs — CI-only, referenced explicitly via
-# `-f ci/global-values.yaml` in .gitlab-ci.yml.
+# `-f ci/global-values.yaml` in .github/workflows/ci.yml.
 global:
   environment: dev
   domain: danielgherasim.com

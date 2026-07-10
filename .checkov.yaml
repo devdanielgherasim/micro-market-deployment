@@ -1,5 +1,5 @@
 # Checkov config for the `kubernetes` framework, scanning helm-template
-# output rendered by CI (see .gitlab-ci.yml, `helm-template` job -> `rendered/`
+# output rendered by CI (see .github/workflows/ci.yml, `helm-template` job -> `rendered/`
 # artifact). Only real, justified skips live here — anything genuinely
 # security-relevant (privileged containers, hostNetwork/hostPID, missing
 # resource limits, root containers, missing NetworkPolicy, etc.) is fixed in
